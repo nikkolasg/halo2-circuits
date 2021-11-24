@@ -108,15 +108,15 @@ impl PedersenChip {
 // and they use the right field size they only currently allow for a Fp * G
 // multiplication
 #[derive(Default)]
-struct Inputs<C: CurveAffine> {
-    pub e: C::Base,
-    pub f: C::Base,
-    pub g: C::Base,
+struct Inputs {
+    pub e: pallas::Base,
+    pub f: pallas::Base,
+    pub g: pallas::Base,
 }
 
 #[derive(Default)]
-struct PedersenCircuit<C: CurveAffine> {
-    inputs: Inputs<C>,
+struct PedersenCircuit {
+    inputs: Inputs,
 }
 
 // We have the circuit over C::Base that means the arithmetic circuit has
@@ -124,7 +124,7 @@ struct PedersenCircuit<C: CurveAffine> {
 // C2  with C2::Scalar == C::Base. In our case C = Pallas therefore C2 = Vesta
 // The input to the circuit are C::Base elements so to perform group
 // arithmetic in the circuit, we have to use points in C2.
-impl Circuit<pallas::Base> for PedersenCircuit<pallas::Affine> {
+impl Circuit<pallas::Base> for PedersenCircuit {
     type Config = PedersenConfig;
     type FloorPlanner = SimpleFloorPlanner;
     //type Config = EccConfig;
