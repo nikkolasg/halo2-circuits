@@ -29,13 +29,11 @@ use std::marker::PhantomData;
 use std::ops::MulAssign;
 
 use ff::PrimeFieldBits;
-//mod verkle;
 
 #[derive(Debug, Clone)]
-struct PedersenChip<C: CurveAffine> {
+struct PedersenChip {
     config: PedersenConfig,
     ecc: EccChip,
-    phantom: PhantomData<C>,
 }
 
 #[derive(Debug, Clone)]
@@ -46,10 +44,7 @@ struct PedersenConfig {
     ecc_config: EccConfig,
 }
 
-impl<C> Chip<C::Base> for PedersenChip<C>
-where
-    C: CurveAffine,
-{
+impl Chip<pallas::Base> for PedersenChip {
     type Config = PedersenConfig;
     type Loaded = ();
 
@@ -62,20 +57,15 @@ where
     }
 }
 
-impl<C> PedersenChip<C>
-where
-    C: CurveAffine,
-    C::Base: PrimeFieldBits,
-{
-    fn new(p: PedersenConfig) -> PedersenChip<C> {
+impl PedersenChip {
+    fn new(p: PedersenConfig) -> PedersenChip {
         PedersenChip {
             ecc: EccChip::construct(p.ecc_config.clone()),
             config: p,
-            phantom: PhantomData<C>,
         }
     }
 
-    fn configure(meta: &mut ConstraintSystem<C::Base>) -> PedersenConfig {
+    fn configure(meta: &mut ConstraintSystem<pallas::Base>) -> PedersenConfig {
         let advices = [
             meta.advice_column(),
             meta.advice_column(),
@@ -130,12 +120,14 @@ where
 // HOWEVER: given halo2/orchard doesn't support variable base multiplication,
 // and they use the right field size they only currently allow for a Fp * G
 // multiplication
+#[derive(Default)]
 struct Inputs<C: CurveAffine> {
     pub e: C::Base,
     pub f: C::Base,
     pub g: C::Base,
 }
 
+#[derive(Default)]
 struct PedersenCircuit<C: CurveAffine> {
     inputs: Inputs<C>,
 }
@@ -145,15 +137,11 @@ struct PedersenCircuit<C: CurveAffine> {
 // C2  with C2::Scalar == C::Base. In our case C = Pallas therefore C2 = Vesta
 // The input to the circuit are C::Base elements so to perform group
 // arithmetic in the circuit, we have to use points in C2.
-impl<C> Circuit<C::Base> for PedersenCircuit<C>
-where
-    C: CurveAffine,
-    C::Base: PrimeFieldBits,
-{
+impl Circuit<pallas::Base> for PedersenCircuit<pallas::Affine> {
     type Config = PedersenConfig;
     type FloorPlanner = SimpleFloorPlanner;
     //type Config = EccConfig;
-    fn configure(cs: &mut ConstraintSystem<C::Base>) -> Self::Config {
+    fn configure(cs: &mut ConstraintSystem<pallas::Base>) -> Self::Config {
         PedersenChip::configure(cs)
     }
     fn without_witnesses(&self) -> Self {
@@ -162,7 +150,7 @@ where
     fn synthesize(
         &self,
         config: Self::Config,
-        mut layouter: impl Layouter<C::Base>,
+        mut layouter: impl Layouter<pallas::Base>,
     ) -> Result<(), Error> {
         let chip = PedersenChip::new(config);
         // allocate inputs for the point addition
