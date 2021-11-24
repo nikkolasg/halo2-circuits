@@ -1,16 +1,3 @@
-// This examples creates a circuit that proves knowledge of a message whose
-// Pedersen hash equals a public value, given as public inputs. The value is
-// constructed from two field Pasta elements and must be a valid point on the
-// Vesta curve. The layout is as follow:
-//
-// +-----+------+----+---------+---------+
-// | row |  msg |  r |  hash_x |  hash_y |
-// +-----+------+----+---------+---------+
-// | 0   | a    | r  |  x      | y       |
-// +-----+------+----+---------+---------+
-//
-// then we want to prove that Point::from(hash_x,hash_y) == G^aH^r. For this
-
 use group::prime::PrimeCurveAffine;
 use group::{Group, ScalarMul};
 use halo2::circuit::{layouter::RegionLayouter, Cell, Chip, Layouter, SimpleFloorPlanner};
@@ -155,22 +142,11 @@ impl Circuit<pallas::Base> for PedersenCircuit<pallas::Affine> {
         let chip = PedersenChip::new(config);
         // allocate inputs for the point addition
         // [e] + [f] = [g]
-        println!(" LETS SEE!!");
-        /*let e = ScalarFix::new(*/
-        //chip.ecc.clone(),
-        //&mut layouter.namespace(|| "scalar witness"),
-        //Some(self.inputs.e),
-        /*)?;*/
         let e = chip.ecc.load_private(
             &mut layouter.namespace(|| "witness"),
             chip.config.col1,
             Some(self.inputs.e),
         )?;
-        /*let base = Point::new(*/
-        //chip.ecc.clone(),
-        //&mut layouter.namespace(|| "generator"),
-        //Some(pallas::generator()),
-        /*)?;*/
         let base = chip.ecc.witness_point_non_id(
             &mut layouter.namespace(|| "generator"),
             Some(pallas::Affine::generator()),
