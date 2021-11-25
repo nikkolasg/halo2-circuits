@@ -1,27 +1,25 @@
-use group::prime::PrimeCurveAffine;
-use group::{Group, ScalarMul};
-use halo2::circuit::{layouter::RegionLayouter, Cell, Chip, Layouter, SimpleFloorPlanner};
+use group::{Curve, Group};
+use halo2::arithmetic::FieldExt;
+use halo2::circuit::{Chip, Layouter, SimpleFloorPlanner};
 use halo2::dev::MockProver;
 use halo2::pasta::Fp;
-use halo2::plonk::{Advice, Assignment, Circuit, Column, ConstraintSystem, Error, Selector};
-use halo2::poly::Rotation;
+use halo2::plonk::{Advice, Circuit, Column, ConstraintSystem, Error};
 use orchard::circuit::gadget::ecc::chip::{EccChip, EccConfig};
-use orchard::circuit::gadget::ecc::EccInstructions; // required to use mul in circuit
-use orchard::circuit::gadget::ecc::{Point, ScalarFixed, ScalarVar};
+use orchard::circuit::gadget::ecc::NonIdentityPoint;
 use orchard::circuit::gadget::utilities::lookup_range_check::LookupRangeCheckConfig;
 use orchard::circuit::gadget::utilities::UtilitiesInstructions;
-use pasta_curves::{arithmetic::CurveAffine, pallas};
-
-use std::marker::PhantomData;
-use std::ops::MulAssign;
-
-use ff::PrimeFieldBits;
+//use pasta_curves::{arithmetic::CurveAffine, pallas};
+use pasta_curves::pallas;
 
 #[derive(Debug, Clone)]
 struct PedersenChip {
     config: PedersenConfig,
     ecc: EccChip,
 }
+
+/*impl UtilitiesInstructions<pallas::Base> for PedersenChip {*/
+//type Var = CellValue<pallas::Base>;
+//}
 
 #[derive(Debug, Clone)]
 struct PedersenConfig {
@@ -108,17 +106,11 @@ impl PedersenChip {
 // and they use the right field size they only currently allow for a Fp * G
 // multiplication
 #[derive(Default)]
-struct Inputs {
-    pub e: pallas::Base,
-    pub f: pallas::Base,
-    pub g: pallas::Base,
-}
-
-#[derive(Default)]
 struct PedersenCircuit {
-    inputs: Inputs,
+    pub e: Option<pallas::Base>,
+    pub f: Option<pallas::Base>,
+    pub g: Option<pallas::Base>,
 }
-
 // We have the circuit over C::Base that means the arithmetic circuit has
 // elements in C::Base. That means proof will contain points in curve
 // C2  with C2::Scalar == C::Base. In our case C = Pallas therefore C2 = Vesta
@@ -142,29 +134,28 @@ impl Circuit<pallas::Base> for PedersenCircuit {
         let chip = PedersenChip::new(config);
         // allocate inputs for the point addition
         // [e] + [f] = [g]
+        //let _ = chip.ecc.load_private(
+        //layouter.namespace(|| "witness2"),
+        //chip.config.col2,
+        //Some(self.inputs.f),
+        //)?;
+        //let _ = chip.ecc.load_private(
+        //layouter.namespace(|| "witness3"),
+        //chip.config.col3,
+        //Some(self.inputs.g),
+        //)?;
+        //
+        //
+        let scalar_val = pallas::Base::rand();
         let e = chip.ecc.load_private(
-            &mut layouter.namespace(|| "witness"),
-            chip.config.col1,
-            Some(self.inputs.e),
+            layouter.namespace(|| "witness1"),
+            chip.ecc.config().advices[0],
+            Some(scalar_val),
         )?;
-        let base = chip.ecc.witness_point_non_id(
-            &mut layouter.namespace(|| "generator"),
-            Some(pallas::Affine::generator()),
-        )?;
-        let (ep, _) = chip.ecc.mul(&mut layouter.namespace(|| "[e]"), &e, &base)?;
-        let f = chip.ecc.load_private(
-            //let scalar_var = ecc.witness_scalar_fixed(
-            &mut layouter.namespace(|| "scalar witness"),
-            chip.config.col2,
-            Some(self.inputs.f),
-        )?;
-        let g = chip.ecc.load_private(
-            //let scalar_var = ecc.witness_scalar_fixed(
-            &mut layouter.namespace(|| "scalar witness"),
-            chip.config.col3,
-            Some(self.inputs.g),
-        )?;
-        println!(" THIS WORKS!!");
+        let p_val = pallas::Point::random(rand::rngs::OsRng).to_affine();
+        let p_cell =
+            NonIdentityPoint::new(chip.ecc.clone(), layouter.namespace(|| "b1"), Some(p_val))?;
+        let (_, _) = p_cell.mul(layouter.namespace(|| "[e]B"), &e)?;
         Ok(())
     }
 }
@@ -172,15 +163,12 @@ impl Circuit<pallas::Base> for PedersenCircuit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use halo2::pasta::pallas::Affine;
     #[test]
     fn test_circuit_pedersen() {
-        let mut circuit: PedersenCircuit = PedersenCircuit {
-            inputs: Inputs {
-                e: pallas::Base::from(10),
-                f: pallas::Base::from(20),
-                g: pallas::Base::from(30),
-            },
+        let circuit: PedersenCircuit = PedersenCircuit {
+            e: Some(pallas::Base::from(10)),
+            f: Some(pallas::Base::from(20)),
+            g: Some(pallas::Base::from(30)),
         };
         let prover = MockProver::run(12, &circuit, vec![]).unwrap();
         assert!(prover.verify().is_ok());

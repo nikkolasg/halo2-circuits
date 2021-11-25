@@ -10,6 +10,7 @@ halo2 = "=0.1.0-beta.1"
 group = "0.11"
 ff = "0.11"
 pasta_curves = "0.2.1"
+rand = "0.8"
 
 [patch.crates-io]
 zcash_note_encryption = { git = "https://github.com/zcash/librustzcash.git", rev = "35e75420657599fdc701cb45704878eb3fa2e59a" }
